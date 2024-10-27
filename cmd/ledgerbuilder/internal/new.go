@@ -1,68 +1,30 @@
-package main
+package internal
 
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/cobra"
+	"text/template"
 )
 
-func main() {
-	o := generateOptions{}
-
-	cleanAndStart := false
-	cmd := cobra.Command{
-		Use: "ledger-builder",
-		RunE: func(cmd *cobra.Command, args []string) error {
-
-			if cleanAndStart {
-				fmt.Println("Cleaning destination/core path")
-				path := filepath.Join(o.DestinationPath, "core")
-				if err := os.RemoveAll(path); err != nil {
-					return fmt.Errorf("failed to clean destination path: %w", err)
-				}
-
-				path = filepath.Join(o.DestinationPath, "internal")
-				if err := os.RemoveAll(path); err != nil {
-					return fmt.Errorf("failed to clean destination path: %w", err)
-				}
-			}
-
-			return o.Generate(cmd.Context())
-		},
-	}
-
-	cmd.Flags().StringVar(&o.RecordName, "record-name", "", "Name of the record to generate")
-	cmd.MarkFlagRequired("record-name")
-
-	cmd.Flags().StringVar(&o.DestinationPath, "destination-path", "", "Path to save the generated record")
-	cmd.MarkFlagRequired("destination-path")
-
-	cmd.Flags().StringVar(&o.GoModuleName, "go-module-name", "", "Name of the Go module to use")
-	cmd.MarkFlagRequired("go-module-name")
-
-	cmd.Flags().StringVar(&o.PackageName, "package-name", "", "Name of the package to use")
-	cmd.Flags().StringVar(&o.TableName, "table-name", "", "Name of the table to use")
-
-	cmd.Flags().BoolVar(&cleanAndStart, "clean", false, "Clean the core path before generating the record")
-	cmd.Execute()
+type GenerateOptions struct {
+	PackageName       string
+	GoModuleName      string
+	RecordName        string
+	DestinationPath   string
+	TableName         string
+	AttributePrefix   string
+	ProtoPkgNamespace string
 }
 
-type generateOptions struct {
-	PackageName     string
-	GoModuleName    string
-	RecordName      string
-	DestinationPath string
-	TableName       string
-	AttributePrefix string
+func NewGenerator(opts GenerateOptions) *GenerateOptions {
+	return &opts
 }
 
-func (o generateOptions) Generate(ctx context.Context) error {
+func (o GenerateOptions) Generate(ctx context.Context) error {
 	fmt.Printf("Generating record %s at %s using Go module %s\n", o.RecordName, o.DestinationPath, o.GoModuleName)
 
 	if o.PackageName == "" {
@@ -83,6 +45,9 @@ func (o generateOptions) Generate(ctx context.Context) error {
 		o.TableName = strings.ToLower(recordName)
 	}
 
+	// protoPkgNamespace makes the last part of the Go module name lowercase
+	o.ProtoPkgNamespace = filepath.Base(o.GoModuleName)
+
 	// recordName makes the first letter of the record name lowercase
 	o.AttributePrefix = strings.ToLower(o.RecordName[:1]) + o.RecordName[1:]
 	fmt.Println("----------------------------------------")
@@ -92,6 +57,7 @@ func (o generateOptions) Generate(ctx context.Context) error {
 	fmt.Println("Destination Path: ", o.DestinationPath)
 	fmt.Println("Table Name: ", o.TableName)
 	fmt.Println("----------------------------------------")
+
 	if err := o.generateCoreComponents(); err != nil {
 		return err
 	}
@@ -100,9 +66,30 @@ func (o generateOptions) Generate(ctx context.Context) error {
 		return err
 	}
 
-	if err := o.generateStorage(); err != nil {
+	if err := o.generateStorageCommon(); err != nil {
 		return err
 	}
+
+	if err := o.generateTables(); err != nil {
+		return err
+	}
+
+	if err := o.generateProto(); err != nil {
+		return err
+	}
+
+	if err := o.generateGRPCServerCommon(); err != nil {
+		return err
+	}
+
+	if err := o.generateGRPCServer(); err != nil {
+		return err
+	}
+
+	if err := o.generateTemporalActivity(); err != nil {
+		return err
+	}
+
 	fmt.Println("----------------------------------------")
 
 	fmt.Println("Tidying up generated files")
@@ -136,7 +123,7 @@ func executeTemplate(templateName, templateStr, path, fileName string, data any)
 	return nil
 }
 
-func (g *generateOptions) tidyGeneratedFile() error {
+func (g *GenerateOptions) tidyGeneratedFile() error {
 	// // Run "goimports" on the generated files in the DestinationPath
 	// importsCmd := exec.Command("goimports", "-w", g.DestinationPath)
 	// importsCmd.Stdout = os.Stdout
@@ -145,6 +132,14 @@ func (g *generateOptions) tidyGeneratedFile() error {
 	// 	fmt.Println("Error running 'goimports':", err)
 	// 	return err
 	// }
+	mkProto := exec.Command("make", "proto")
+	mkProto.Dir = g.DestinationPath // Set the working directory to the destination path
+	mkProto.Stdout = os.Stdout
+	mkProto.Stderr = os.Stderr
+	if err := mkProto.Run(); err != nil {
+		fmt.Println("Error running 'make proto':", err)
+		return err
+	}
 
 	// Run "go mod tidy" in the DestinationPath
 	tidyCmd := exec.Command("go", "mod", "tidy")
