@@ -65,7 +65,7 @@ type Ledger interface {
 	// GetByName retrieves a {{.RecordName}} by its name.
 	GetByName(context.Context, string) (*GetResponse, error)
 	// UpdateStatus updates the state and message of an existing {{.RecordName}}.
-	UpdateStatus(context.Context, *UpdateStateRequest) (*UpdateResponse, error)
+	UpdateStatus(context.Context, *UpdateStatusRequest) (*UpdateResponse, error)
 	// List returns a list of {{.RecordName}} that match the provided filters.
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	// Delete deletes a {{.RecordName}}.
@@ -82,8 +82,8 @@ type CreateResponse struct {
 	Record {{.RecordName}}Record
 }
 
-// UpdateStateRequest represents the request to update the state and message of a {{.RecordName}}.
-type UpdateStateRequest struct {
+// UpdateStatusRequest represents the request to update the state and message of a {{.RecordName}}.
+type UpdateStatusRequest struct {
 	Metadata core.Metadata
 	Status   {{.RecordName}}Status
 }
@@ -240,7 +240,7 @@ var validStateTransitions = map[{{.RecordName}}State][]{{.RecordName}}State{
 }
 
 // UpdateStatus updates the state and message of an existing {{.RecordName}}.
-func (l *ledger) UpdateStatus(ctx context.Context, req *UpdateStateRequest) (*UpdateResponse, error) {
+func (l *ledger) UpdateStatus(ctx context.Context, req *UpdateStatusRequest) (*UpdateResponse, error) {
 	// validate the request
 	if req.Metadata.ID == "" {
 		return nil, ledgererrors.NewLedgerError(
@@ -453,7 +453,7 @@ func TestLedgerUpdateStatus(t *testing.T) {
 
 	lastUpdatedRecord := createResp.Record
 	t.Run("UpdateStatus Success", func(t *testing.T) {
-		updateReq := &{{.PackageName}}.UpdateStateRequest{
+		updateReq := &{{.PackageName}}.UpdateStatusRequest{
 			Metadata: lastUpdatedRecord.Metadata,
 			Status: {{.PackageName}}.{{.RecordName}}Status{
 				State:   {{.PackageName}}.{{.RecordName}}StateInActive,
@@ -470,7 +470,7 @@ func TestLedgerUpdateStatus(t *testing.T) {
 	})
 
 	t.Run("UpdateStatus InvalidTransition Failure", func(t *testing.T) {
-		updateReq := &{{.PackageName}}.UpdateStateRequest{
+		updateReq := &{{.PackageName}}.UpdateStatusRequest{
 			Metadata: lastUpdatedRecord.Metadata,
 			Status: {{.PackageName}}.{{.RecordName}}Status{
 				State:   {{.PackageName}}.{{.RecordName}}StatePending, // Invalid transition
@@ -487,7 +487,7 @@ func TestLedgerUpdateStatus(t *testing.T) {
 	})
 
 	t.Run("Update conflict Failure", func(t *testing.T) {
-		updateReq := &{{.PackageName}}.UpdateStateRequest{
+		updateReq := &{{.PackageName}}.UpdateStatusRequest{
 			Metadata: createResp.Record.Metadata, // This is the old metadata. Should cause a conflict.
 			Status: {{.PackageName}}.{{.RecordName}}Status{
 				State:   {{.PackageName}}.{{.RecordName}}StateActive,

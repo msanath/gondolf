@@ -39,8 +39,9 @@ option go_package = "/api/{{.ProtoPkgNamespace}}pb";
 // Enum to represent the {{.RecordName}}State
 enum {{.RecordName}}State {
     {{.RecordName}}State_UNKNOWN = 0;
-    {{.RecordName}}State_ACTIVE = 1;
-    {{.RecordName}}State_INACTIVE = 2;
+	{{.RecordName}}State_PENDING = 1;
+    {{.RecordName}}State_ACTIVE = 2;
+    {{.RecordName}}State_INACTIVE = 3;
 }
 
 // Message representing the {{.RecordName}}
@@ -86,7 +87,7 @@ service {{.RecordName}}s {
     rpc GetByName(Get{{.RecordName}}ByNameRequest) returns (Get{{.RecordName}}Response);
 
     // Update the state of an existing {{.RecordName}}.
-    rpc UpdateState(Update{{.RecordName}}StateRequest) returns (Update{{.RecordName}}Response);
+    rpc UpdateStatus(Update{{.RecordName}}StatusRequest) returns (Update{{.RecordName}}Response);
 
     // List {{.RecordName}}s that match the provided filters.
     rpc List(List{{.RecordName}}Request) returns (List{{.RecordName}}Response);
@@ -107,7 +108,7 @@ message Create{{.RecordName}}Response {
 }
 
 // Request to update the state and message of a {{.RecordName}}.
-message Update{{.RecordName}}StateRequest {
+message Update{{.RecordName}}StatusRequest {
     // The metadata of the {{.RecordName}} to update.
     core.Metadata metadata = 1;
 

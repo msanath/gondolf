@@ -29,7 +29,7 @@ func New{{.RecordName}}Activities(client {{.ProtoPkgNamespace}}pb.{{.RecordName}
 	registry.RegisterActivity(a.Create{{.RecordName}})
 	registry.RegisterActivity(a.Get{{.RecordName}}ByMetadata)
 	registry.RegisterActivity(a.Get{{.RecordName}}ByName)
-	registry.RegisterActivity(a.Update{{.RecordName}}State)
+	registry.RegisterActivity(a.Update{{.RecordName}}Status)
 	registry.RegisterActivity(a.List{{.RecordName}})
 	registry.RegisterActivity(a.Delete{{.RecordName}})
 	return a
@@ -81,10 +81,10 @@ func (c *{{.RecordName}}Activities) Get{{.RecordName}}ByName(ctx context.Context
 }
 
 // Update{{.RecordName}}State updates the state of a {{.RecordName}}.
-func (c *{{.RecordName}}Activities) Update{{.RecordName}}State(ctx context.Context, req *{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}StateRequest) (*{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}Response, error) {
+func (c *{{.RecordName}}Activities) Update{{.RecordName}}Status(ctx context.Context, req *{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}StatusRequest) (*{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}Response, error) {
 	activity.GetLogger(ctx).Info("Updating {{.RecordName}} state", "request", req)
 
-	resp, err := c.client.UpdateState(ctx, req)
+	resp, err := c.client.UpdateStatus(ctx, req)
 	if err != nil {
 		activity.GetLogger(ctx).Error("Failed to update {{.RecordName}} state", "error", err)
 		return nil, fmt.Errorf("failed to update {{.RecordName}} state: %w", err)

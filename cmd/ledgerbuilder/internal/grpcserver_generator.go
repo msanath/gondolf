@@ -94,9 +94,9 @@ func (s *{{.RecordName}}Service) GetByName(ctx context.Context, req *{{.ProtoPkg
 	return &{{.ProtoPkgNamespace}}pb.Get{{.RecordName}}Response{Record: s.ledgerRecordToProto(getResponse.Record)}, nil
 }
 
-// UpdateState updates the state and message of an existing {{.RecordName}}
-func (s *{{.RecordName}}Service) UpdateState(ctx context.Context, req *{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}StateRequest) (*{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}Response, error) {
-	updateResponse, err := s.ledger.UpdateStatus(ctx, &{{.PackageName}}.UpdateStateRequest{
+// UpdateStatus updates the state and message of an existing {{.RecordName}}
+func (s *{{.RecordName}}Service) UpdateStatus(ctx context.Context, req *{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}StatusRequest) (*{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}Response, error) {
+	updateResponse, err := s.ledger.UpdateStatus(ctx, &{{.PackageName}}.UpdateStatusRequest{
 		Metadata: core.Metadata{
 			ID:      req.Metadata.Id,
 			Version: req.Metadata.Version,
@@ -218,7 +218,7 @@ func Test{{.RecordName}}Server(t *testing.T) {
 	require.Equal(t, "test-{{.RecordName}}", getByNameResp.Record.Name)
 
 	// update
-	updateResp, err := client.UpdateState(ctx, &{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}StateRequest{
+	updateResp, err := client.UpdateStatus(ctx, &{{.ProtoPkgNamespace}}pb.Update{{.RecordName}}StatusRequest{
 		Metadata: resp.Record.Metadata,
 		Status: &{{.ProtoPkgNamespace}}pb.{{.RecordName}}Status{
 			State:   {{.ProtoPkgNamespace}}pb.{{.RecordName}}State_{{.RecordName}}State_ACTIVE,
