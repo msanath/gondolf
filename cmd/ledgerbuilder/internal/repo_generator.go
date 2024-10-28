@@ -6,69 +6,34 @@ import (
 	"path/filepath"
 )
 
-const tableTemplate = `
+const repoTemplate = `
 package sqlstorage
 
 import (
 	"context"
 
+	"github.com/msanath/gondolf/pkg/simplesql"
 	"{{.GoModuleName}}/internal/ledger/{{.PackageName}}"
 	"{{.GoModuleName}}/internal/ledger/core"
-
-	"github.com/msanath/gondolf/pkg/simplesql"
+	"{{.GoModuleName}}/internal/sqlstorage/tables"
 )
 
-var {{.AttributePrefix}}TableMigrations = []simplesql.Migration{
-	{
-		Version: 1, // Update the version number sequentially.
-		Up: ` + "`" + `
-			CREATE TABLE {{.TableName}} (
-				id VARCHAR(255) NOT NULL PRIMARY KEY,
-				version BIGINT NOT NULL,
-				name VARCHAR(255) NOT NULL,
-				state VARCHAR(255) NOT NULL,
-				message TEXT NOT NULL,
-				is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-				UNIQUE (id, name, is_deleted)
-			);
-		` + "`" + `,
-		Down: ` + "`" + `
-				DROP TABLE IF EXISTS {{.TableName}};
-			` + "`" + `,
-	},
+// {{.AttributePrefix}}Storage is a concrete implementation of {{.RecordName}}Repository using sqlx
+type {{.AttributePrefix}}Storage struct {
+	simplesql.Database
+	{{.AttributePrefix}}Table *tables.{{.RecordName}}Table
 }
 
-type {{.AttributePrefix}}Row struct {
-	ID        string ` + "`" + `db:"id" orm:"op=create key=primary_key filter=In"` + "`" + `
-	Version   uint64 ` + "`" + `db:"version" orm:"op=create,update"` + "`" + `
-	Name      string ` + "`" + `db:"name" orm:"op=create composite_unique_key:Name,isDeleted filter=In"` + "`" + `
-	IsDeleted bool   ` + "`" + `db:"is_deleted"` + "`" + `
-	State     string ` + "`" + `db:"state" orm:"op=create,update filter=In,NotIn"` + "`" + `
-	Message   string ` + "`" + `db:"message" orm:"op=create,update"` + "`" + `
+// new{{.RecordName}}Storage creates a new storage instance satisfying the {{.RecordName}}Repository interface
+func new{{.RecordName}}Storage(db simplesql.Database) {{.PackageName}}.Repository {
+	return &{{.AttributePrefix}}Storage{
+		Database:     db,
+		{{.AttributePrefix}}Table: tables.New{{.RecordName}}Table(db),
+	}
 }
 
-type {{.AttributePrefix}}UpdateFields struct {
-	State   *string ` + "`" + `db:"state"` + "`" + `
-	Message *string ` + "`" + `db:"message"` + "`" + `
-}
-
-type {{.AttributePrefix}}SelectFilters struct {
-	IDIn       []string ` + "`" + `db:"id:in"` + "`" + `        // IN condition
-	NameIn     []string ` + "`" + `db:"name:in"` + "`" + `      // IN condition
-	StateIn    []string ` + "`" + `db:"state:in"` + "`" + `     // IN condition
-	StateNotIn []string ` + "`" + `db:"state:not_in"` + "`" + ` // NOT IN condition
-	VersionGte *uint64  ` + "`" + `db:"version:gte"` + "`" + `  // Greater than or equal condition
-	VersionLte *uint64  ` + "`" + `db:"version:lte"` + "`" + `  // Less than or equal condition
-	VersionEq  *uint64  ` + "`" + `db:"version:eq"` + "`" + `   // Equal condition
-
-	IncludeDeleted bool   ` + "`" + `db:"include_deleted"` + "`" + ` // Special boolean handling
-	Limit          uint32 ` + "`" + `db:"limit"` + "`" + `
-}
-
-const {{.AttributePrefix}}TableName = "{{.TableName}}"
-
-func {{.AttributePrefix}}ModelToRow(model {{.PackageName}}.{{.RecordName}}Record) {{.AttributePrefix}}Row {
-	return {{.AttributePrefix}}Row{
+func {{.AttributePrefix}}ModelToRow(model {{.PackageName}}.{{.RecordName}}Record) tables.{{.RecordName}}Row {
+	return tables.{{.RecordName}}Row{
 		ID:      model.Metadata.ID,
 		Version: model.Metadata.Version,
 		Name:    model.Name,
@@ -77,7 +42,7 @@ func {{.AttributePrefix}}ModelToRow(model {{.PackageName}}.{{.RecordName}}Record
 	}
 }
 
-func {{.AttributePrefix}}RowToModel(row {{.AttributePrefix}}Row) {{.PackageName}}.{{.RecordName}}Record {
+func {{.AttributePrefix}}RowToModel(row tables.{{.RecordName}}Row) {{.PackageName}}.{{.RecordName}}Record {
 	return {{.PackageName}}.{{.RecordName}}Record{
 		Metadata: core.Metadata{
 			ID:      row.ID,
@@ -91,27 +56,9 @@ func {{.AttributePrefix}}RowToModel(row {{.AttributePrefix}}Row) {{.PackageName}
 	}
 }
 
-// {{.AttributePrefix}}Storage is a concrete implementation of {{.RecordName}}Repository using sqlx
-type {{.AttributePrefix}}Storage struct {
-	simplesql.Database
-	tableName  string
-	modelToRow func({{.PackageName}}.{{.RecordName}}Record) {{.AttributePrefix}}Row
-	rowToModel func({{.AttributePrefix}}Row) {{.PackageName}}.{{.RecordName}}Record
-}
-
-// new{{.RecordName}}Storage creates a new storage instance satisfying the {{.RecordName}}Repository interface
-func new{{.RecordName}}Storage(db simplesql.Database) {{.PackageName}}.Repository {
-	return &{{.AttributePrefix}}Storage{
-		Database:   db,
-		tableName:  {{.AttributePrefix}}TableName,
-		modelToRow: {{.AttributePrefix}}ModelToRow,
-		rowToModel: {{.AttributePrefix}}RowToModel,
-	}
-}
-
 func (s *{{.AttributePrefix}}Storage) Insert(ctx context.Context, record {{.PackageName}}.{{.RecordName}}Record) error {
-	row := s.modelToRow(record)
-	err := s.Database.InsertRow(ctx, s.DB, s.tableName, row)
+	execer := s.DB
+	err := s.{{.AttributePrefix}}Table.Insert(ctx, execer, {{.AttributePrefix}}ModelToRow(record))
 	if err != nil {
 		return errHandler(err)
 	}
@@ -119,48 +66,39 @@ func (s *{{.AttributePrefix}}Storage) Insert(ctx context.Context, record {{.Pack
 }
 
 func (s *{{.AttributePrefix}}Storage) GetByMetadata(ctx context.Context, metadata core.Metadata) ({{.PackageName}}.{{.RecordName}}Record, error) {
-	var row {{.AttributePrefix}}Row
-	err := s.Database.GetRowByID(ctx, metadata.ID, metadata.Version, metadata.IsDeleted, s.tableName, &row)
+	row, err := s.{{.AttributePrefix}}Table.GetByIDAndVersion(ctx, metadata.ID, metadata.Version, metadata.IsDeleted)
 	if err != nil {
 		return {{.PackageName}}.{{.RecordName}}Record{}, errHandler(err)
 	}
-
-	return s.rowToModel(row), nil
+	return {{.AttributePrefix}}RowToModel(row), nil
 }
 
-func (s *{{.AttributePrefix}}Storage) GetByName(ctx context.Context, {{.AttributePrefix}}Name string) ({{.PackageName}}.{{.RecordName}}Record, error) {
-	var row {{.AttributePrefix}}Row
-	err := s.Database.GetRowByName(ctx, {{.AttributePrefix}}Name, s.tableName, &row)
+func (s *{{.AttributePrefix}}Storage) GetByName(ctx context.Context, name string) ({{.PackageName}}.{{.RecordName}}Record, error) {
+	row, err := s.{{.AttributePrefix}}Table.GetByName(ctx, name)
 	if err != nil {
 		return {{.PackageName}}.{{.RecordName}}Record{}, errHandler(err)
 	}
-
-	return s.rowToModel(row), nil
+	return {{.AttributePrefix}}RowToModel(row), nil
 }
 
 func (s *{{.AttributePrefix}}Storage) UpdateState(ctx context.Context, metadata core.Metadata, status {{.PackageName}}.{{.RecordName}}Status) error {
+	execer := s.DB
 	state := status.State.ToString()
-	err := s.Database.UpdateRow(ctx, s.DB, metadata.ID, metadata.Version, s.tableName, {{.AttributePrefix}}UpdateFields{
+	message := status.Message
+	updateFields := tables.{{.RecordName}}TableUpdateFields{
 		State:   &state,
-		Message: &status.Message,
-	})
-	if err != nil {
-		return errHandler(err)
+		Message: &message,
 	}
-	return nil
+	return s.{{.AttributePrefix}}Table.Update(ctx, execer, metadata.ID, metadata.Version, updateFields)
 }
 
 func (s *{{.AttributePrefix}}Storage) Delete(ctx context.Context, metadata core.Metadata) error {
-	err := s.Database.MarkRowAsDeleted(ctx, s.DB, metadata.ID, metadata.Version, s.tableName)
-	if err != nil {
-		return errHandler(err)
-	}
-	return nil
+	execer := s.DB
+	return s.{{.AttributePrefix}}Table.Delete(ctx, execer, metadata.ID, metadata.Version)
 }
 
 func (s *{{.AttributePrefix}}Storage) List(ctx context.Context, filters {{.PackageName}}.{{.RecordName}}ListFilters) ([]{{.PackageName}}.{{.RecordName}}Record, error) {
-	// Extract core filters
-	dbFilters := {{.AttributePrefix}}SelectFilters{
+	dbFilters := tables.{{.RecordName}}TableSelectFilters{
 		IDIn:           append([]string{}, filters.IDIn...),
 		NameIn:         append([]string{}, filters.NameIn...),
 		VersionGte:     filters.VersionGte,
@@ -169,8 +107,6 @@ func (s *{{.AttributePrefix}}Storage) List(ctx context.Context, filters {{.Packa
 		IncludeDeleted: filters.IncludeDeleted,
 		Limit:          filters.Limit,
 	}
-
-	// Extract {{.AttributePrefix}} specific filters
 	for _, state := range filters.StateIn {
 		dbFilters.StateIn = append(dbFilters.StateIn, state.ToString())
 	}
@@ -178,22 +114,19 @@ func (s *{{.AttributePrefix}}Storage) List(ctx context.Context, filters {{.Packa
 		dbFilters.StateNotIn = append(dbFilters.StateNotIn, state.ToString())
 	}
 
-	var rows []{{.AttributePrefix}}Row
-	err := s.Database.SelectRows(ctx, s.tableName, dbFilters, &rows)
+	rows, err := s.{{.AttributePrefix}}Table.List(ctx, dbFilters)
 	if err != nil {
 		return nil, err
 	}
-
 	var records []{{.PackageName}}.{{.RecordName}}Record
 	for _, row := range rows {
-		records = append(records, s.rowToModel(row))
+		records = append(records, {{.AttributePrefix}}RowToModel(row))
 	}
-
 	return records, nil
 }
 `
 
-const tableTestTemplate = `
+const repoTestTemplate = `
 package sqlstorage_test
 
 import (
@@ -423,8 +356,8 @@ func test{{.RecordName}}CRUD(t *testing.T, repo {{.PackageName}}.Repository, tes
 }
 `
 
-func (o GenerateOptions) generateTables() error {
-	fmt.Println("Generating storage components")
+func (o GenerateOptions) generateRepo() error {
+	fmt.Println("Generating storage repo components")
 
 	sqlStoragePath := filepath.Join(o.DestinationPath, "internal", "sqlstorage")
 	// Create destination path if it doesn't exist
@@ -433,9 +366,9 @@ func (o GenerateOptions) generateTables() error {
 		return fmt.Errorf("failed to create destination path: %w", err)
 	}
 
-	fileName := fmt.Sprintf("%s_table.go", o.TableName)
+	fileName := fmt.Sprintf("%s_repo.go", o.TableName)
 	fmt.Println("... creating ", fileName)
-	err = executeTemplate("storageTemplate", tableTemplate, sqlStoragePath, fileName, o)
+	err = executeTemplate("repoTemplate", repoTemplate, sqlStoragePath, fileName, o)
 	if err != nil {
 		return fmt.Errorf("failed to generate record file: %w", err)
 	}
@@ -443,7 +376,7 @@ func (o GenerateOptions) generateTables() error {
 	// Generate the test file
 	testFileName := fmt.Sprintf("%s_repo_test.go", o.TableName)
 	fmt.Println("... creating ", testFileName)
-	err = executeTemplate("storageTestTemplate", tableTestTemplate, sqlStoragePath, testFileName, o)
+	err = executeTemplate("storageTestTemplate", repoTestTemplate, sqlStoragePath, testFileName, o)
 	if err != nil {
 		return fmt.Errorf("failed to generate record file: %w", err)
 	}

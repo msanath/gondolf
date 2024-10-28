@@ -13,6 +13,7 @@ package sqlstorage
 import (
 	"{{.GoModuleName}}/internal/ledger/{{.PackageName}}"
 	ledgererrors "{{.GoModuleName}}/internal/ledger/errors"
+	"{{.GoModuleName}}/internal/sqlstorage/tables"
 
 	"github.com/msanath/gondolf/pkg/simplesql"
 
@@ -30,10 +31,6 @@ func NewSQLStorage(
 	db *sqlx.DB,
 	is_sqlite bool,
 ) (*SQLStorage, error) {
-	var schemaMigrations = []simplesql.Migration{}
-
-	schemaMigrations = append(schemaMigrations, {{.AttributePrefix}}TableMigrations...)
-	// ++ledgerbuilder:Migrations
 
 	var errHandler simplesql.ErrHandler
 	if is_sqlite {
@@ -45,13 +42,13 @@ func NewSQLStorage(
 	simpleDB := simplesql.NewDatabase(
 		db, simplesql.WithErrHandler(errHandler),
 	)
-	err := simpleDB.ApplyMigrations(schemaMigrations)
+	err := tables.Initialize(simpleDB)
 	if err != nil {
 		return nil, err
 	}
 
 	return &SQLStorage{
-		Cluster: newClusterStorage(simpleDB),
+		{{.RecordName}}: new{{.RecordName}}Storage(simpleDB),
 		// ++ledgerbuilder:RepoInstance
 	}, nil
 }
@@ -110,7 +107,7 @@ func (o GenerateOptions) generateStorageCommon() error {
 	// If file is present, update at ++ledgerbuilder markers
 	if _, err := os.Stat(newFilePath); err == nil {
 		fmt.Println("... existing new.go found. Updating new.go")
-		err = o.updateNewFile(newFilePath)
+		err = o.updateNewStorageFile(newFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to update new storage file: %w", err)
 		}
@@ -142,8 +139,8 @@ func (o GenerateOptions) generateStorageCommon() error {
 	return nil
 }
 
-// updateNewFile updates the existing 'new.go' file to add new repositories and migrations.
-func (o GenerateOptions) updateNewFile(filePath string) error {
+// updateNewStorageFile updates the existing 'new.go' file to add new repositories and migrations.
+func (o GenerateOptions) updateNewStorageFile(filePath string) error {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)

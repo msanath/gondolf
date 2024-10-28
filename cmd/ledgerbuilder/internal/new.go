@@ -18,6 +18,8 @@ type GenerateOptions struct {
 	TableName         string
 	AttributePrefix   string
 	ProtoPkgNamespace string
+
+	TablesOnly bool
 }
 
 func NewGenerator(opts GenerateOptions) *GenerateOptions {
@@ -58,6 +60,13 @@ func (o GenerateOptions) Generate(ctx context.Context) error {
 	fmt.Println("Table Name: ", o.TableName)
 	fmt.Println("----------------------------------------")
 
+	if o.TablesOnly {
+		if err := o.generateTables(); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	if err := o.generateCoreComponents(); err != nil {
 		return err
 	}
@@ -66,11 +75,15 @@ func (o GenerateOptions) Generate(ctx context.Context) error {
 		return err
 	}
 
+	if err := o.generateTables(); err != nil {
+		return err
+	}
+
 	if err := o.generateStorageCommon(); err != nil {
 		return err
 	}
 
-	if err := o.generateTables(); err != nil {
+	if err := o.generateRepo(); err != nil {
 		return err
 	}
 

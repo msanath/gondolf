@@ -56,5 +56,6 @@ func main() {
 	cmd.Flags().StringVar(&o.TableName, "table-name", "", "Name of the table to use")
 
 	cmd.Flags().BoolVar(&cleanAndStart, "clean", false, "Clean the core path before generating the record")
+	cmd.Flags().BoolVar(&o.TablesOnly, "tables-only", false, "Generate only the mysql tables")
 	cmd.Execute()
 }
