@@ -8,7 +8,8 @@ prepare:
 
 .PHONY: build
 build: clean prepare tidy gofmt
-	go build -o $(BUILD_DIR)/ledger-builder ./cmd/ledgerbuilder
+	go build -o $(BUILD_DIR)/ledger-builder ./cmd/ledgerbuilder && \
+	go build -o $(BUILD_DIR)/cligen ./cmd/cligen
 
 .PHONY: tidy
 tidy:
@@ -17,6 +18,14 @@ tidy:
 .PHONY: gofmt
 gofmt:
 	go fmt ./...
+
+.PHONY: test
+test:
+	go test -v ./...
+
+.PHONY: generate
+generate:
+	go generate ./...
 
 .PHONY: clean
 clean:
