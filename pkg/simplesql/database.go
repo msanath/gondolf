@@ -54,31 +54,44 @@ func (d *Database) InsertRow(
 	return d.errHandler(err)
 }
 
-func (d *Database) GetRowByName(ctx context.Context, name string, tableName string, row interface{}) error {
-	// Deduce the column names and placeholders from the struct tags
+func (d *Database) GetRowByKey(
+	ctx context.Context, tableName string, key interface{}, row interface{},
+) error {
+	// Deduce the column names for the SELECT statement
 	columnNames, _ := getColumnNamesAndPlaceholders(row)
-	query := fmt.Sprintf(`
-		SELECT %s
-		FROM %s
-		WHERE name = ? AND is_deleted = FALSE
-	`, columnNames, tableName)
+	query := fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0`, columnNames, tableName)
 
-	// d.logger.Debug("GetRowByName", "query", strings.ReplaceAll(query, "\n\t\t", " "))
-	err := d.DB.GetContext(ctx, row, query, name)
-	return d.errHandler(err)
-}
+	// Prepare the parameters for the WHERE clause
+	params := []interface{}{}
+	keyValue := reflect.ValueOf(key)
+	if keyValue.Kind() == reflect.Ptr {
+		keyValue = keyValue.Elem()
+	}
+	keyType := keyValue.Type()
 
-func (d *Database) GetRowByID(ctx context.Context, ID string, Version uint64, is_deleted bool, tableName string, row interface{}) error {
-	// Deduce the column names and placeholders from the struct tags
-	columnNames, _ := getColumnNamesAndPlaceholders(row)
-	query := fmt.Sprintf(`
-		SELECT %s
-		FROM %s
-		WHERE id = ? AND is_deleted = ? AND version = ?
-	`, columnNames, tableName)
+	// Iterate over the struct fields to build the WHERE clause
+	for i := 0; i < keyType.NumField(); i++ {
+		field := keyType.Field(i)
+		fieldValue := keyValue.Field(i)
 
-	// d.logger.Debug("GetRowByID", "query", strings.ReplaceAll(query, "\n\t\t", " "))
-	err := d.DB.GetContext(ctx, row, query, ID, is_deleted, Version)
+		// Check if the field is a pointer and skip if nil
+		if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
+			continue
+		}
+
+		// Use the "db" struct tag if present, otherwise default to field name
+		columnName := field.Tag.Get("db")
+		if columnName == "" {
+			columnName = field.Name
+		}
+
+		// Add condition to query and append field value to params
+		query += fmt.Sprintf(" AND %s = ?", columnName)
+		params = append(params, fieldValue.Interface())
+	}
+
+	// Execute the query
+	err := d.DB.GetContext(ctx, row, query, params...)
 	return d.errHandler(err)
 }
 
@@ -118,7 +131,7 @@ func (d *Database) UpdateRow(
 	if len(updates) > 0 {
 		query += ", " + strings.Join(updates, ", ")
 	}
-	query += " WHERE id = :id AND version = :new_version - 1 AND is_deleted = FALSE"
+	query += " WHERE id = :id AND version = :new_version - 1 AND deleted_at = 0"
 
 	res, err := d.bindAndExec(ctx, execer, query, params)
 	if err != nil {
@@ -127,25 +140,43 @@ func (d *Database) UpdateRow(
 	return d.checkOptimisticLock(res)
 }
 
-func (d *Database) MarkRowAsDeleted(
-	ctx context.Context, execer sqlx.ExecerContext, ID string, version uint64, tableName string,
+func (d *Database) HardDeleteByKey(
+	ctx context.Context, tableName string, key interface{}, row interface{},
 ) error {
-	query := fmt.Sprintf(`
-		UPDATE %s
-		SET is_deleted = TRUE, version = :new_version
-		WHERE id = :id AND version = :new_version - 1 AND is_deleted = FALSE
-	`, tableName)
+	query := fmt.Sprintf(`DELETE FROM %s WHERE 1=1`, tableName)
 
-	params := map[string]interface{}{
-		"id":          ID,
-		"new_version": version + 1,
+	// Prepare the parameters for the WHERE clause
+	params := []interface{}{}
+	keyValue := reflect.ValueOf(key)
+	if keyValue.Kind() == reflect.Ptr {
+		keyValue = keyValue.Elem()
+	}
+	keyType := keyValue.Type()
+
+	// Iterate over the struct fields to build the WHERE clause
+	for i := 0; i < keyType.NumField(); i++ {
+		field := keyType.Field(i)
+		fieldValue := keyValue.Field(i)
+
+		// Check if the field is a pointer and skip if nil
+		if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
+			continue
+		}
+
+		// Use the "db" struct tag if present, otherwise default to field name
+		columnName := field.Tag.Get("db")
+		if columnName == "" {
+			columnName = field.Name
+		}
+
+		// Add condition to query and append field value to params
+		query += fmt.Sprintf(" AND %s = ?", columnName)
+		params = append(params, fieldValue.Interface())
 	}
 
-	res, err := d.bindAndExec(ctx, execer, query, params)
-	if err != nil {
-		return err
-	}
-	return d.checkOptimisticLock(res)
+	// Execute the query
+	err := d.DB.GetContext(ctx, row, query, params...)
+	return d.errHandler(err)
 }
 
 func (d *Database) SelectRows(
@@ -193,9 +224,10 @@ func (d *Database) SelectRows(
 		} else if field.Kind() == reflect.Bool && dbTag == "include_deleted" {
 			// Special handling for boolean flags like IncludeDeleted
 			if !field.Bool() {
-				query += " AND is_deleted = FALSE"
+				query += " AND deleted_at = 0"
+			} else {
+				query += " AND deleted_at >= 0"
 			}
-
 		} else if field.IsValid() && !isEmptyValue(field) {
 			// Handle different operations
 			switch operation {
