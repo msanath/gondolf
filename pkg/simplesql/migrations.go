@@ -19,7 +19,11 @@ func getCurrentSchemaVersion(db *sqlx.DB) (int, error) {
 }
 
 func setCurrentSchemaVersion(db *sqlx.DB, version int) error {
-	_, err := db.Exec("INSERT INTO schema_version (version) VALUES (?)", version)
+	_, err := db.Exec("DELETE FROM schema_version")
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec("INSERT INTO schema_version (version) VALUES (?)", version)
 	return err
 }
 
