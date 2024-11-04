@@ -33,6 +33,8 @@ func NewPlainTextPrinter() PlainText {
 
 type tablePrinterOptions struct {
 	withRowSeparator bool
+	alignLeft        bool
+	hideTotal        bool
 }
 
 type TablePrinterOption func(*tablePrinterOptions)
@@ -40,6 +42,18 @@ type TablePrinterOption func(*tablePrinterOptions)
 func WithRowSeparator() TablePrinterOption {
 	return func(o *tablePrinterOptions) {
 		o.withRowSeparator = true
+	}
+}
+
+func WithAlignLeft() TablePrinterOption {
+	return func(o *tablePrinterOptions) {
+		o.alignLeft = true
+	}
+}
+
+func WithHideTotal() TablePrinterOption {
+	return func(o *tablePrinterOptions) {
+		o.hideTotal = true
 	}
 }
 
@@ -59,10 +73,16 @@ func (p *plainText) PrintTable(headers []string, rows [][]string, opts ...TableP
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeader(headers)
-	table.SetAlignment(tablewriter.ALIGN_CENTER)
+	if options.alignLeft {
+		table.SetAlignment(tablewriter.ALIGN_LEFT)
+	} else {
+		table.SetAlignment(tablewriter.ALIGN_CENTER)
+	}
 	table.AppendBulk(rows)
 	table.Render()
-	p.PrintSuccess(fmt.Sprintf("Total Records: %d", len(rows)))
+	if !options.hideTotal {
+		p.PrintSuccess(fmt.Sprintf("Total: %d", len(rows)))
+	}
 }
 
 // PrintDisplayField prints the key and value in a key-value format. Ex:

@@ -122,7 +122,7 @@ func (c *{{.RecordName}}Activities) Delete{{.RecordName}}(ctx context.Context, r
 func (o GenerateOptions) generateTemporalActivity() error {
 	fmt.Println("Generating Temporal activities")
 
-	activityPath := filepath.Join(o.DestinationPath, "pkg", "controlplane", "temporal", "activities", fmt.Sprintf("%sactivities", o.ProtoPkgNamespace))
+	activityPath := filepath.Join(o.DestinationPath, "controlplane", "temporal", "activities", fmt.Sprintf("%sactivities", o.ProtoPkgNamespace))
 	err := os.MkdirAll(activityPath, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create activities path: %w", err)
