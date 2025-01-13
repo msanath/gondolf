@@ -35,7 +35,7 @@ func NewDatabase(db *sqlx.DB, opts ...Option) Database {
 	return d
 }
 
-func (d *Database) InsertRow(
+func (d *Database) Insert(
 	ctx context.Context, execer sqlx.ExecerContext, tableName string, row interface{},
 ) error {
 	// Deduce the column names and placeholders from the struct tags
@@ -54,12 +54,12 @@ func (d *Database) InsertRow(
 	return d.errHandler(err)
 }
 
-func (d *Database) GetRowByKey(
+func (d *Database) Get(
 	ctx context.Context, tableName string, key interface{}, row interface{},
 ) error {
 	// Deduce the column names for the SELECT statement
 	columnNames, _ := getColumnNamesAndPlaceholders(row)
-	query := fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0`, columnNames, tableName)
+	query := fmt.Sprintf(`SELECT %s FROM %s WHERE 1=1`, columnNames, tableName)
 
 	// Prepare the parameters for the WHERE clause
 	params := []interface{}{}
@@ -95,9 +95,15 @@ func (d *Database) GetRowByKey(
 	return d.errHandler(err)
 }
 
-func (d *Database) UpdateRow(
-	ctx context.Context, execer sqlx.ExecerContext, ID string, version uint64, tableName string, fields interface{},
+func (d *Database) Update(
+	ctx context.Context, execer sqlx.ExecerContext, tableName string, key interface{}, fields interface{},
 ) error {
+	// version should be part of key, else have an error
+	version := reflect.ValueOf(key).FieldByName("Version").Uint()
+	if version == 0 {
+		return ErrInvalidVersion
+	}
+
 	query := fmt.Sprintf(`
 		UPDATE %s
 		SET version = :new_version
@@ -105,7 +111,6 @@ func (d *Database) UpdateRow(
 
 	var updates []string
 	params := map[string]interface{}{
-		"id":          ID,
 		"new_version": version + 1,
 	}
 
@@ -120,18 +125,46 @@ func (d *Database) UpdateRow(
 		field := v.Field(i)
 		fieldType := t.Field(i)
 		dbTag := fieldType.Tag.Get("db")
+		attributeTag := fmt.Sprintf("update_%s", dbTag)
 
 		// Check if the field is nil (for pointers), if not, add to updates
 		if field.Kind() == reflect.Ptr && !field.IsNil() {
-			updates = append(updates, fmt.Sprintf("%s = :%s", dbTag, dbTag))
-			params[dbTag] = field.Elem().Interface() // Dereference pointer and add value
+			updates = append(updates, fmt.Sprintf("%s = :%s", dbTag, attributeTag))
+			params[attributeTag] = field.Elem().Interface() // Dereference pointer and add value
 		}
 	}
 
 	if len(updates) > 0 {
 		query += ", " + strings.Join(updates, ", ")
 	}
-	query += " WHERE id = :id AND version = :new_version - 1 AND deleted_at = 0"
+
+	query += " WHERE 1=1"
+	// Add the key fields to the WHERE clause
+	keyValue := reflect.ValueOf(key)
+	if keyValue.Kind() == reflect.Ptr {
+		keyValue = keyValue.Elem()
+	}
+	keyType := keyValue.Type()
+
+	for i := 0; i < keyType.NumField(); i++ {
+		field := keyType.Field(i)
+		fieldValue := keyValue.Field(i)
+
+		// Check if the field is a pointer and skip if nil
+		if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
+			continue
+		}
+
+		// Use the "db" struct tag if present, otherwise default to field name
+		columnName := field.Tag.Get("db")
+		if columnName == "" {
+			columnName = field.Name
+		}
+
+		// Add condition to query and append field value to params
+		query += fmt.Sprintf(" AND %s = :%s", columnName, columnName)
+		params[columnName] = fieldValue.Interface()
+	}
 
 	res, err := d.bindAndExec(ctx, execer, query, params)
 	if err != nil {
@@ -140,8 +173,8 @@ func (d *Database) UpdateRow(
 	return d.checkOptimisticLock(res)
 }
 
-func (d *Database) HardDeleteByKey(
-	ctx context.Context, tableName string, key interface{}, row interface{},
+func (d *Database) Delete(
+	ctx context.Context, tableName string, key interface{},
 ) error {
 	query := fmt.Sprintf(`DELETE FROM %s WHERE 1=1`, tableName)
 
@@ -175,11 +208,11 @@ func (d *Database) HardDeleteByKey(
 	}
 
 	// Execute the query
-	err := d.DB.GetContext(ctx, row, query, params...)
+	_, err := d.DB.ExecContext(ctx, query, params...)
 	return d.errHandler(err)
 }
 
-func (d *Database) SelectRows(
+func (d *Database) List(
 	ctx context.Context, tableName string, filters interface{}, result interface{},
 ) error {
 	// Deduce the column names and placeholders from the struct tags
@@ -221,13 +254,6 @@ func (d *Database) SelectRows(
 			}
 			params[fieldType.Name] = field.Interface()
 
-		} else if field.Kind() == reflect.Bool && dbTag == "include_deleted" {
-			// Special handling for boolean flags like IncludeDeleted
-			if !field.Bool() {
-				query += " AND deleted_at = 0"
-			} else {
-				query += " AND deleted_at >= 0"
-			}
 		} else if field.IsValid() && !isEmptyValue(field) {
 			// Handle different operations
 			switch operation {
@@ -316,7 +342,7 @@ func (d *Database) checkOptimisticLock(res sql.Result) error {
 		return d.errHandler(err)
 	}
 	if rowsAffected == 0 {
-		return ErrInsertConflict
+		return fmt.Errorf("no rows affected: %w", ErrInsertConflict)
 	}
 	return nil
 }

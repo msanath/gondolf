@@ -3,6 +3,7 @@ package simplesql
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/mattn/go-sqlite3"
@@ -13,6 +14,7 @@ type ErrHandler func(error) error
 var (
 	ErrInsertConflict = errors.New("insert conflict")
 	ErrRecordNotFound = errors.New("record not found")
+	ErrInvalidVersion = errors.New("invalid version or version not provided")
 	ErrInternal       = errors.New("internal error")
 )
 
@@ -38,10 +40,10 @@ func MySQLErrHandler(err error) error {
 			fallthrough
 		case 1452:
 			// Foreign key constraint violation (cannot add/update child row)
-			return ErrInsertConflict
+			return fmt.Errorf("%s: %w", mysqlErr.Error(), ErrInsertConflict)
 		default:
 			// For all other MySQL errors
-			return ErrInternal
+			return fmt.Errorf("%s: %w", mysqlErr.Error(), ErrInternal)
 		}
 	}
 	return err
@@ -56,20 +58,20 @@ func SQLiteErrHandler(err error) error {
 	// Check if the error is a SQLite error
 	if err == sql.ErrNoRows {
 		// Record not found
-		return ErrRecordNotFound
+		return fmt.Errorf("%s: %w", err.Error(), ErrRecordNotFound)
 	}
 
 	if sqliteErr, ok := err.(sqlite3.Error); ok {
 		switch sqliteErr.Code {
 		case sqlite3.ErrConstraint:
 			// Unique constraint violation
-			return ErrInsertConflict
+			return fmt.Errorf("%s: %w", sqliteErr.Error(), ErrInsertConflict)
 		case sqlite3.ErrNotFound:
 			// Record not found
-			return ErrRecordNotFound
+			return fmt.Errorf("%s: %w", sqliteErr.Error(), ErrRecordNotFound)
 		default:
 			// For all other SQLite errors
-			return ErrInternal
+			return fmt.Errorf("%s: %w", sqliteErr.Error(), ErrInternal)
 		}
 	}
 
