@@ -1,0 +1,49 @@
+{
+    "go.gopath": "${env:HOME}/.localgo",
+    "go.goroot": "${env:HOME}/.goenv/versions/1.23.2",
+    "go.testFlags": [
+        "-count=1" //  prevent caching of test results
+    ],
+    "go.toolsEnvVars": {
+        "GO": "${env:HOME}/.goenv/versions/1.23.2/bin/go",
+        "GOBIN": "${env:HOME}/.localgo/bin",
+        "GOCACHE": "${env:HOME}/.cache/go-build",
+        "GOMODCACHE": "${env:HOME}/.cache/go/pkg/mod",
+        "GONOPROXY": "none",
+        "GOPATH": "${env:HOME}/.localgo",
+        "GOPRIVATE": "*",
+        "GOPROXY": "",
+        "GOROOT": "${env:HOME}/.goenv/versions/1.23.2",
+        "GOSUMDB": "off",
+        "CGO_ENABLED": "1",
+        "PATH": "${env:HOME}/.goenv/versions/1.23.2/bin:${env:HOME}/.localgo/bin:${env:PATH}"
+    },
+    "terminal.integrated.env.linux": {
+        "GO": "${env:HOME}/.goenv/versions/1.23.2/bin/go",
+        "GOBIN": "${env:HOME}/.localgo/bin",
+        "GOCACHE": "${env:HOME}/.cache/go-build",
+        "GOMODCACHE": "${env:HOME}/.cache/go/pkg/mod",
+        "GONOPROXY": "none",
+        "GOPATH": "${env:HOME}/.localgo",
+        "GOPRIVATE": "*",
+        "GOPROXY": "",
+        "GOROOT": "${env:HOME}/.goenv/versions/1.23.2",
+        "GOSUMDB": "off",
+        "CGO_ENABLED": "1",
+        "PATH": "${env:HOME}/.goenv/versions/1.23.2/bin:${env:HOME}/.localgo/bin:${env:PATH}"
+    },
+    "terminal.integrated.env.osx": {
+        "GO": "${env:HOME}/.goenv/versions/1.23.2/bin/go",
+        "GOBIN": "${env:HOME}/.localgo/bin",
+        "GOCACHE": "${env:HOME}/.cache/go-build",
+        "GOMODCACHE": "${env:HOME}/.cache/go/pkg/mod",
+        "GONOPROXY": "none",
+        "GOPATH": "${env:HOME}/.localgo",
+        "GOPRIVATE": "*",
+        "GOPROXY": "",
+        "GOROOT": "${env:HOME}/.goenv/versions/1.23.2",
+        "GOSUMDB": "off",
+        "CGO_ENABLED": "1",
+        "PATH": "${env:HOME}/.goenv/versions/1.23.2/bin:${env:HOME}/.localgo/bin:${env:PATH}"
+    },
+}

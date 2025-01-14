@@ -1,0 +1,43 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Generate Cluster",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/ledgerbuilder",
+            "env": {},
+            "args": [
+                "--record-name",
+                "NodePayload",
+                "--table-name",
+                "node_payload",
+                "--destination-path",
+                "/Users/sanath/projects/temp",
+                "--go-module-name",
+                "github.com/msanath/mrds",
+                "--tables-only"
+            ],
+            "showLog": true
+        },
+        {
+            "name": "Generate orm",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/simplesqlorm",
+            "cwd": "${workspaceFolder}/cmd/simplesqlorm/test",
+            "env": {},
+            "args": [
+                "--struct-name",
+                "ClusterRow",
+                "--pkg-name",
+                "test",
+                "--table-name",
+                "cluster",
+            ],
+            "showLog": true
+        },
+    ]
+}

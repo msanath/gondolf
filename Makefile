@@ -9,7 +9,8 @@ prepare:
 .PHONY: build
 build: clean prepare tidy gofmt
 	go build -o $(BUILD_DIR)/ledger-builder ./cmd/ledgerbuilder && \
-	go build -o $(BUILD_DIR)/cligen ./cmd/cligen
+	go build -o $(BUILD_DIR)/cligen ./cmd/cligen && \
+	go build -o $(BUILD_DIR)/simplesqlorm-gen ./cmd/simplesqlorm
 
 .PHONY: tidy
 tidy:
