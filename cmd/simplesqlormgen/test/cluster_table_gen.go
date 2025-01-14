@@ -37,6 +37,7 @@ type ClusterTableSelectFilters struct {
 	VersionLte         *uint64  `db:"version:lte"`
 	VersionEq          *uint64  `db:"version:eq"`
 	DeletedAtEq        *int64   `db:"deleted_at:eq"`
+	DeletedAtGte       *int64   `db:"deleted_at:gte"`
 	NameIn             []string `db:"name:in"`
 	ClusterManagerIDIn []string `db:"cluster_manager_id:in"`
 	StateIn            []string `db:"state:in"`

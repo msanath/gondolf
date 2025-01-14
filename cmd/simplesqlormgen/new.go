@@ -8,9 +8,7 @@ import (
 
 type ORMGenOptions struct {
 	StructName string
-	PkgName    string
-	// OutputFile string
-	TableName string
+	TableName  string
 }
 
 func (o ORMGenOptions) Run(ctx context.Context) error {
@@ -34,12 +32,6 @@ func main() {
 
 	cmd.Flags().StringVar(&o.StructName, "struct-name", "", "Name of the struct to generate ORM code for")
 	cmd.MarkFlagRequired("struct-name")
-
-	cmd.Flags().StringVar(&o.PkgName, "pkg-name", "", "Name of the package the struct belongs to")
-	cmd.MarkFlagRequired("pkg-name")
-
-	// cmd.Flags().StringVar(&o.OutputFile, "output-file", "", "Output file to write the generated code to")
-	// cmd.MarkFlagRequired("output-file")
 
 	cmd.Flags().StringVar(&o.TableName, "table-name", "", "Name of the table in the database")
 	cmd.MarkFlagRequired("table-name")

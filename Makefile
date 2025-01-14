@@ -7,10 +7,10 @@ prepare:
 	mkdir -p $(BUILD_DIR)
 
 .PHONY: build
-build: clean prepare tidy gofmt
+build: clean prepare tidy gofmt test
 	go build -o $(BUILD_DIR)/ledger-builder ./cmd/ledgerbuilder && \
 	go build -o $(BUILD_DIR)/cligen ./cmd/cligen && \
-	go build -o $(BUILD_DIR)/simplesqlorm-gen ./cmd/simplesqlorm
+	go build -o $(BUILD_DIR)/simplesqlormgen ./cmd/simplesqlormgen
 
 .PHONY: tidy
 tidy:

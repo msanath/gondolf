@@ -98,10 +98,12 @@ func (d *Database) Get(
 func (d *Database) Update(
 	ctx context.Context, execer sqlx.ExecerContext, tableName string, key interface{}, fields interface{},
 ) error {
-	// version should be part of key, else have an error
-	version := reflect.ValueOf(key).FieldByName("Version").Uint()
-	if version == 0 {
-		return ErrInvalidVersion
+	version := uint64(0)
+	versionField := reflect.ValueOf(key).FieldByName("Version")
+	if !versionField.IsValid() {
+		return fmt.Errorf("version field is not present for update: %w", ErrInternal)
+	} else {
+		version = versionField.Uint()
 	}
 
 	query := fmt.Sprintf(`

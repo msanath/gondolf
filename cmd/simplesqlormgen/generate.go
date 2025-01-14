@@ -122,7 +122,7 @@ func newGenerator(o ORMGenOptions) (*generator, error) {
 
 	getKeys, updateKey, updateFields, selectFilters := parseStructFields(s)
 	return &generator{
-		PkgName:               o.PkgName,
+		PkgName:               pkg.Name,
 		TableName:             o.TableName,
 		CamelCaseTableName:    snakeToCamel(o.TableName),
 		NonCamelCaseTableName: strings.ToLower(o.TableName),
@@ -160,16 +160,17 @@ func parseStructFields(s *types.Struct) (getKeys, updateKey, updateFields, selec
 		if strings.Contains(ormTags, "op=get") {
 			getKeys += fmt.Sprintf("%s *%s `db:\"%s\"`\n", fieldName, field.Type().String(), dbTag)
 		}
-		if strings.Contains(ormTags, "soft_delete:true") {
+		if strings.Contains(ormTags, "soft_delete=true") {
 			getKeys += fmt.Sprintf("%s %s `db:\"%s\"`\n", fieldName, field.Type().String(), dbTag)
 			updateKey += fmt.Sprintf("%s %s `db:\"%s\"`\n", fieldName, field.Type().String(), dbTag)
 			updateFields += fmt.Sprintf("%s *%s `db:\"%s\"`\n", fieldName, field.Type().String(), dbTag)
 			selectFilters += fmt.Sprintf("%sEq *%s `db:\"%s:eq\"`\n", fieldName, field.Type().String(), dbTag)
+			selectFilters += fmt.Sprintf("%sGte *%s `db:\"%s:gte\"`\n", fieldName, field.Type().String(), dbTag)
 		}
-		if strings.Contains(ormTags, "key:primary") {
+		if strings.Contains(ormTags, "key=primary") {
 			updateKey += fmt.Sprintf("%s %s `db:\"%s\"`\n", fieldName, field.Type().String(), dbTag)
 		}
-		if strings.Contains(ormTags, "op_lock:true") {
+		if strings.Contains(ormTags, "op_lock=true") {
 			updateKey += fmt.Sprintf("%s %s `db:\"%s\"`\n", fieldName, field.Type().String(), dbTag)
 		}
 		if strings.Contains(ormTags, "op=update") {
@@ -231,9 +232,11 @@ func getCurrentPackage() (*packages.Package, error) {
 func executeTemplate(templateName, templateStr, path, fileName string, data any) error {
 	// Generate the records file
 	filePath := filepath.Join(path, fileName)
-	// Check if the file already exists. If it does, return an error.
+	// Check if the file already exists. If so delete it and recreate it.
 	if _, err := os.Stat(filePath); err == nil {
-		return fmt.Errorf("record file already exists at %s", filePath)
+		if err := os.Remove(filePath); err != nil {
+			return fmt.Errorf("failed to remove existing record file: %w", err)
+		}
 	}
 
 	// Create the record file

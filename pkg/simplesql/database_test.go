@@ -258,7 +258,7 @@ func TestSimpleSqlDB(t *testing.T) {
 		require.NoError(t, err)
 
 		cluster, err := clusterTable.Get(context.Background(), ClusterTableGetKeys{ID: StringPtr("cluster1")})
-		require.ErrorAs(t, err, &simplesql.ErrRecordNotFound)
+		require.ErrorIs(t, err, simplesql.ErrRecordNotFound)
 		require.Equal(t, ClusterRow{}, cluster)
 
 		clusters, err := clusterTable.List(context.Background(), ClusterTableSelectFilters{
