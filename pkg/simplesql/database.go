@@ -99,21 +99,29 @@ func (d *Database) Update(
 	ctx context.Context, execer sqlx.ExecerContext, tableName string, key interface{}, fields interface{},
 ) error {
 	version := uint64(0)
+	versionSet := true
 	versionField := reflect.ValueOf(key).FieldByName("Version")
 	if !versionField.IsValid() {
-		return fmt.Errorf("version field is not present for update: %w", ErrInternal)
+		versionSet = false
 	} else {
 		version = versionField.Uint()
 	}
 
-	query := fmt.Sprintf(`
-		UPDATE %s
-		SET version = :new_version
-	`, tableName)
-
+	query := ""
 	var updates []string
-	params := map[string]interface{}{
-		"new_version": version + 1,
+	params := map[string]interface{}{}
+
+	if versionSet {
+		query = fmt.Sprintf(`
+			UPDATE %s
+			SET version = :new_version
+		`, tableName)
+
+		params = map[string]interface{}{
+			"new_version": version + 1,
+		}
+	} else {
+		query = fmt.Sprintf(`UPDATE %s SET `, tableName)
 	}
 
 	// Use reflection to iterate over the fields and extract db tags and values
@@ -137,7 +145,11 @@ func (d *Database) Update(
 	}
 
 	if len(updates) > 0 {
-		query += ", " + strings.Join(updates, ", ")
+		if versionSet {
+			query += ", " + strings.Join(updates, ", ")
+		} else {
+			query += strings.Join(updates, ", ")
+		}
 	}
 
 	query += " WHERE 1=1"

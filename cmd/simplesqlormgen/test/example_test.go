@@ -32,10 +32,20 @@ var clusterTableMigrations = []simplesql.Migration{
 				DROP TABLE IF EXISTS cluster;
 			`,
 	},
+	{
+		Version: 2,
+		Up: `
+			CREATE TABLE node (
+				id VARCHAR(255) NOT NULL PRIMARY KEY,
+				name VARCHAR(255) NOT NULL
+			);`,
+		Down: `
+			DROP TABLE IF EXISTS node;
+			`,
+	},
 }
 
 func TestSimpleSqlDB(t *testing.T) {
-
 	db, err := test.NewTestSQLiteDB()
 	require.NoError(t, err)
 	defer db.Close()
@@ -179,6 +189,25 @@ func TestSimpleSqlDB(t *testing.T) {
 			clusterNames = append(clusterNames, cluster.Name)
 		}
 		require.NotContains(t, clusterNames, "cluster1")
+	})
+
+	t.Run("Test update without version", func(t *testing.T) {
+		err := NewNodeTable(simplesqlDb).Insert(context.Background(), db, NodeRow{
+			ID:   "node1",
+			Name: "node1",
+		})
+		require.NoError(t, err)
+
+		err = NewNodeTable(simplesqlDb).Update(context.Background(), db, NodeTableUpdateKey{
+			ID: "node1",
+		}, NodeTableUpdateFields{
+			Name: StringPtr("node2"),
+		})
+		require.NoError(t, err)
+
+		node, err := NewNodeTable(simplesqlDb).Get(context.Background(), NodeTableGetKeys{ID: StringPtr("node1")})
+		require.NoError(t, err)
+		require.Equal(t, "node2", node.Name)
 	})
 }
 

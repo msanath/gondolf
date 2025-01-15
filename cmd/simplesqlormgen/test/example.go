@@ -1,6 +1,6 @@
 package test
 
-//go:generate ../../../bin/simplesqlorm-gen --struct-name ClusterRow --pkg-name test --table-name=cluster
+//go:generate ../../../bin/simplesqlormgen --struct-name ClusterRow --table-name=cluster
 type ClusterRow struct {
 	ID            string `db:"id" orm:"op=get key=primary filter=In"`
 	Version       uint64 `db:"version" orm:"op_lock=true filter=Gte,Lte,Eq"`
@@ -12,4 +12,10 @@ type ClusterRow struct {
 	ClusterManagerID string `db:"cluster_manager_id" orm:"key=primary filter=In"`
 	State            string `db:"state" orm:"op=update filter=In,NotIn"`
 	Message          string `db:"message" orm:"op=update"`
+}
+
+//go:generate ../../../bin/simplesqlormgen --struct-name NodeRow --table-name=node
+type NodeRow struct {
+	ID   string `db:"id" orm:"op=get key=primary filter=In"`
+	Name string `db:"name" orm:"op=update filter=In"`
 }
