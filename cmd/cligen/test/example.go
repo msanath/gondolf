@@ -1,17 +1,17 @@
-package main
+package test
 
 import "time"
 
-//go:generate ../../bin/cligen DisplayServiceNode main example_gen.go
+//go:generate ../../../bin/cligen --struct-name DisplayServiceNode --pkg-name test --output-file example_gen.go
 type DisplayServiceNode struct {
-	Name             string            `json:"name" displayName:"Name" columnTag:"name"`
-	ServiceMetadata  ServiceMetadata   `json:"service_metadata,omitempty"`
-	Resources        Resources         `json:"resources,omitempty"`
-	Status           ServiceStatus     `json:"status,omitempty"`
-	Incidents        IncidentSummary   `json:"incidents,omitempty"`
-	NetworkInfo      NetworkInfo       `json:"network_info,omitempty"`
-	Deployments      []DeploymentStats `json:"deployments,omitempty"`
-	ContainerSummary ContainerSummary  `json:"container_summary,omitempty"`
+	Deployments      []*DeploymentStats `json:"deployments,omitempty"`
+	Name             string             `json:"name" displayName:"Name" columnTag:"name"`
+	ServiceMetadata  ServiceMetadata    `json:"service_metadata,omitempty"`
+	Resources        Resources          `json:"resources,omitempty"`
+	Status           ServiceStatus      `json:"status,omitempty"`
+	Incidents        IncidentSummary    `json:"incidents,omitempty"`
+	NetworkInfo      NetworkInfo        `json:"network_info,omitempty"`
+	ContainerSummary ContainerSummary   `json:"container_summary,omitempty"`
 }
 
 type ServiceMetadata struct {
