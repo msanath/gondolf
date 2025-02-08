@@ -2,15 +2,23 @@ GO=go
 
 BUILD_DIR=bin
 
-.PHONY: prepare
-prepare:
-	mkdir -p $(BUILD_DIR)
+.PHONY: all
+all: clean build test
 
 .PHONY: build
-build: clean prepare tidy gofmt test
+build: prepare tidy gofmt
 	go build -o $(BUILD_DIR)/ledger-builder ./cmd/ledgerbuilder && \
 	go build -o $(BUILD_DIR)/cligen ./cmd/cligen && \
 	go build -o $(BUILD_DIR)/simplesqlormgen ./cmd/simplesqlormgen
+
+.PHONY: clean
+clean:
+	rm -rf bin 2>/dev/null || true
+	rm go.sum 2>/dev/null || true
+
+.PHONY: prepare
+prepare:
+	mkdir -p $(BUILD_DIR)
 
 .PHONY: tidy
 tidy:
@@ -21,14 +29,10 @@ gofmt:
 	go fmt ./...
 
 .PHONY: test
-test:
+test: generate
 	go test -v ./...
 
 .PHONY: generate
 generate:
 	go generate ./...
 
-.PHONY: clean
-clean:
-	rm -rf bin 2>/dev/null || true
-	rm go.sum 2>/dev/null || true

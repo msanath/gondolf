@@ -318,92 +318,108 @@ func (g *Generator) getBody() (body, error) {
 }
 
 func getAttrs(s *types.Struct, structName string, parents []string) []attributeParams {
-	attrs := []attributeParams{}
+	var attrs []attributeParams
 	for i := 0; i < s.NumFields(); i++ {
 		f := s.Field(i)
-		name := f.Name()
 		tags := reflect.StructTag(s.Tag(i))
 		if tags.Get("doNotGen") == "true" {
 			continue
 		}
 
-		if f.Type().String() != "time.Time" {
-			_, ok := f.Type().Underlying().(*types.Struct)
-			if ok {
-				structName := f.Type().String()
-				// *middle-earth/gondolf/cligen.DisruptionSummary
-				// Get the last part of the string
-				structName = structName[strings.LastIndex(structName, ".")+1:]
-				subAttrs := getAttrs(f.Type().Underlying().(*types.Struct), structName, append(parents, name))
-				attrs = append(attrs, subAttrs...)
-				continue
-			}
-			// check if this is an array of structs and get the attributes of the struct
-			_, ok = f.Type().Underlying().(*types.Slice)
-			if ok {
-				sliceType := f.Type().Underlying().(*types.Slice)
-				_, ok = sliceType.Elem().Underlying().(*types.Struct)
-				if ok {
-					structName := sliceType.Elem().String()
-					// *middle-earth/gondolf/cligen.DisruptionSummary
-					// Get the last part of the string
-					structName = structName[strings.LastIndex(structName, ".")+1:]
-					subAttrs := getAttrs(sliceType.Elem().Underlying().(*types.Struct), structName, append(parents, structName))
-					attrs = append(attrs, subAttrs...)
-					continue
-				}
-			}
-		}
-
-		if !f.Exported() {
-			// Skip private fields
+		// If the field is a nested struct (or pointer/slice of one), process it recursively.
+		if nested, ok := tryExtractNestedAttrs(f, parents); ok {
+			attrs = append(attrs, nested...)
 			continue
 		}
 
-		splitTags := strings.Split(tags.Get("json"), ",")
-		jsonTag := splitTags[0]
-
-		attributeName := name
-
-		var redTexts []string
-		redTextsVal, ok := tags.Lookup("redTexts")
-		if ok {
-			redTexts = strings.Split(redTextsVal, ",")
+		// Skip non-exported fields.
+		if !f.Exported() {
+			continue
 		}
 
-		var greenTexts []string
-		greenTextsVal, ok := tags.Lookup("greenTexts")
-		if ok {
-			greenTexts = strings.Split(greenTextsVal, ",")
-		}
-
-		var yellowTexts []string
-		yellowTextsVal, ok := tags.Lookup("yellowTexts")
-		if ok {
-			yellowTexts = strings.Split(yellowTextsVal, ",")
-		}
-
-		derivedAttributeGetter := "Get" + name
-		if len(parents) > 0 {
-			derivedAttributeGetter = strings.Join(parents, ".") + "." + derivedAttributeGetter
-		}
+		// Process the field’s tags.
+		jsonTag := strings.Split(tags.Get("json"), ",")[0]
 
 		attr := attributeParams{
 			StructName:             structName,
-			AttributeName:          attributeName,
+			AttributeName:          f.Name(),
 			JSONTag:                jsonTag,
 			Type:                   f.Type(),
 			ColumnTagValue:         tags.Get("columnTag"),
 			ColumnTagName:          "Column" + toCamelCase(tags.Get("columnTag")),
 			DisplayName:            tags.Get("displayName"),
-			RedTexts:               redTexts,
-			GreenTexts:             greenTexts,
-			YellowTexts:            yellowTexts,
-			DerivedAttributeGetter: derivedAttributeGetter,
+			RedTexts:               getTagValues(tags, "redTexts"),
+			GreenTexts:             getTagValues(tags, "greenTexts"),
+			YellowTexts:            getTagValues(tags, "yellowTexts"),
+			DerivedAttributeGetter: makeGetter(f.Name(), parents),
 		}
 		attrs = append(attrs, attr)
 	}
 	return attrs
+}
+
+// tryExtractNestedAttrs checks whether f’s type is a struct (or pointer/slice thereof)
+// and, if so, calls getAttrs recursively.
+func tryExtractNestedAttrs(f *types.Var, parents []string) ([]attributeParams, bool) {
+	typ := f.Type()
+	// Skip time.Time even though it is a struct.
+	if typ.String() == "time.Time" {
+		return nil, false
+	}
+
+	switch t := typ.Underlying().(type) {
+	case *types.Struct:
+		structName := lastPart(typ.String())
+		return getAttrs(t, structName, append(parents, f.Name())), true
+
+	case *types.Pointer:
+		if st, ok := t.Elem().Underlying().(*types.Struct); ok {
+			structName := lastPart(t.Elem().String())
+			return getAttrs(st, structName, append(parents, f.Name())), true
+		}
+
+	case *types.Slice:
+		switch elem := t.Elem().Underlying().(type) {
+		case *types.Struct:
+			structName := lastPart(t.Elem().String())
+			// Note: for a slice of struct, we append the struct name.
+			return getAttrs(elem, structName, append(parents, structName)), true
+		case *types.Pointer:
+			if st, ok := elem.Elem().Underlying().(*types.Struct); ok {
+				structName := lastPart(elem.Elem().String())
+				return getAttrs(st, structName, append(parents, f.Name())), true
+			}
+		}
+	}
+	return nil, false
+}
+
+// lastPart returns the substring after the last dot.
+// For example, "*middle-earth/gondolf/cligen.DisruptionSummary" becomes "DisruptionSummary".
+func lastPart(s string) string {
+	if idx := strings.LastIndex(s, "."); idx != -1 && idx < len(s)-1 {
+		return s[idx+1:]
+	}
+	return s
+}
+
+// getTagValues splits a comma-separated tag value into a slice.
+// If the tag isn’t present or empty, it returns nil.
+func getTagValues(tags reflect.StructTag, key string) []string {
+	if val, ok := tags.Lookup(key); ok && val != "" {
+		return strings.Split(val, ",")
+	}
+	return nil
+}
+
+// makeGetter builds the derived attribute getter.
+// If there are any parent names, they are joined with dots.
+func makeGetter(name string, parents []string) string {
+	getter := "Get" + name
+	if len(parents) > 0 {
+		getter = strings.Join(parents, ".") + "." + getter
+	}
+	return getter
 }
 
 func toCamelCase(input string) string {

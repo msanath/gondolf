@@ -2,26 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Generate Cluster",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/ledgerbuilder",
-            "env": {},
-            "args": [
-                "--record-name",
-                "NodePayload",
-                "--table-name",
-                "node_payload",
-                "--destination-path",
-                "/Users/sanath/projects/temp",
-                "--go-module-name",
-                "github.com/msanath/mrds",
-                "--tables-only"
-            ],
-            "showLog": true
-        },
-        {
             "name": "Generate orm",
             "type": "go",
             "request": "launch",
@@ -34,6 +14,24 @@
                 "ClusterRow",
                 "--table-name",
                 "cluster",
+            ],
+            "showLog": true
+        },
+        {
+            "name": "Generate cli",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/cligen",
+            "cwd": "${workspaceFolder}/cmd/cligen/test",
+            "env": {},
+            "args": [
+                "--struct-name",
+                "DisplayServiceNode",
+                "--pkg-name",
+                "test",
+                "--output-file",
+                "example_gen.go"
             ],
             "showLog": true
         },
